@@ -1244,7 +1244,18 @@ public class PhoneSwitcher extends Handler {
 
     private void switchPhone(int phoneId, boolean active) {
         PhoneState state = mPhoneStates[phoneId];
-        if (state.active == active) return;
+        // Single-modem dual-SIM: the SIM-less phantom slot shares the real card's PS stack, so
+        // ALLOW_DATA(false) to it detaches that stack and kills the real phone's data. Skip if no sub.
+        if (mHalCommandToUse == HAL_COMMAND_ALLOW_DATA
+                && !SubscriptionManager.isValidSubscriptionId(mPhoneSubscriptions[phoneId])) {
+            if (state.active != active) {
+                state.active = active;
+                logl((active ? "activate " : "deactivate ") + phoneId
+                        + " (skip ALLOW_DATA: no subscription)");
+            }
+            return;
+        }
+        if (mHalCommandToUse != HAL_COMMAND_ALLOW_DATA && state.active == active) return;
         state.active = active;
         logl((active ? "activate " : "deactivate ") + phoneId);
         state.lastRequested = System.currentTimeMillis();
